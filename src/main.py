@@ -31,8 +31,9 @@ def main():
     
     # Read and parse the relation XML file
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    xml_path = os.path.join(os.path.dirname(script_dir), '156071.xml')
+    xml_path = os.path.join(os.path.dirname(script_dir), 'data', '156071.xml')
     
+    print(f"Reading XML file from: {xml_path}")
     with open(xml_path, 'r') as f:
         relation_xml = f.read()
     

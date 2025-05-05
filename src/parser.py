@@ -1,6 +1,8 @@
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import List, Tuple, Dict, Any
+from geoalchemy2.shape import from_shape
+from shapely.geometry import Point
 
 def parse_timestamp(timestamp_str: str) -> datetime:
     return datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%SZ")
@@ -25,12 +27,15 @@ def parse_osm_xml(xml_data: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, A
     
     for elem in root:
         if elem.tag == 'node':
+            lat = float(elem.get('lat'))
+            lon = float(elem.get('lon'))
             node = {
                 'node_id': int(elem.get('id')),
-                'lat': float(elem.get('lat')),
-                'lon': float(elem.get('lon')),
+                'lat': lat,
+                'lon': lon,
                 'version': int(elem.get('version')),
-                'timestamp': parse_timestamp(elem.get('timestamp'))
+                'timestamp': parse_timestamp(elem.get('timestamp')),
+                'geom': from_shape(Point(lon, lat), srid=4326)
             }
             nodes.append(node)
             
