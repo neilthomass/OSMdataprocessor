@@ -1,0 +1,81 @@
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.dialects.postgresql import insert
+from typing import List, Dict, Any
+import os
+from dotenv import load_dotenv
+from models import Base, Node, Way, WayNode
+
+load_dotenv()
+
+class DatabaseManager:
+    def __init__(self):
+        # Use system username instead of 'postgres'
+        database_url = os.getenv('DATABASE_URL', f'postgresql://{os.getenv("USER")}@localhost:5432/osm_data')
+        self.engine = create_engine(database_url)
+        self.Session = sessionmaker(bind=self.engine)
+        
+    def init_db(self):
+        Base.metadata.create_all(self.engine)
+        
+    def store_osm_data(self, nodes: List[Dict[str, Any]], ways: List[Dict[str, Any]], way_nodes: List[Dict[str, Any]]):
+        session = self.Session()
+        try:
+            # Store nodes
+            for node_data in nodes:
+                stmt = insert(Node).values(**node_data)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=['node_id'],
+                    set_=node_data
+                )
+                session.execute(stmt)
+            
+            # Store ways
+            for way_data in ways:
+                stmt = insert(Way).values(**way_data)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=['way_id'],
+                    set_=way_data
+                )
+                session.execute(stmt)
+            
+            # Store way_nodes
+            for way_node_data in way_nodes:
+                stmt = insert(WayNode).values(**way_node_data)
+                stmt = stmt.on_conflict_do_nothing()
+                session.execute(stmt)
+            
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+    
+    def get_nearest_way(self, lat: float, lon: float, max_distance: float = 0.001):
+        session = self.Session()
+        try:
+            query = text("""
+            SELECT w.way_id, w.lanes, w.highway_type, w.name, w.maxspeed,
+                   ST_Distance(n.geom, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)) as distance
+            FROM ways w
+            JOIN way_nodes wn ON w.way_id = wn.way_id
+            JOIN nodes n ON wn.node_id = n.node_id
+            WHERE ST_DWithin(
+                n.geom,
+                ST_SetSRID(ST_MakePoint(:lon, :lat), 4326),
+                :max_distance
+            )
+            ORDER BY distance
+            LIMIT 1
+            """)
+            
+            result = session.execute(query, {
+                'lat': lat,
+                'lon': lon,
+                'max_distance': max_distance
+            }).first()
+            
+            return result
+        finally:
+            session.close() 
