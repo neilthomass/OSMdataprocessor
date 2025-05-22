@@ -3,4 +3,5 @@ requests==2.31.0
 python-dotenv==1.0.0
 SQLAlchemy==2.0.23
 geoalchemy2==0.14.2
-shapely==2.0.2 
+shapely==2.0.2
+flask==2.3.3 

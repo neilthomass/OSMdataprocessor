@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.dialects.postgresql import insert
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Tuple
 import os
 from dotenv import load_dotenv
 from models import Base, Node, Way, WayNode
@@ -78,4 +78,25 @@ class DatabaseManager:
             
             return result
         finally:
-            session.close() 
+            session.close()
+
+    def get_lanes_at_coordinate(self, lat: float, lon: float, max_distance: float = 0.001) -> Tuple[Optional[int], Optional[float]]:
+        """
+        Get the number of lanes at a given coordinate.
+        
+        Args:
+            lat (float): Latitude of the coordinate
+            lon (float): Longitude of the coordinate
+            max_distance (float): Maximum distance to search for nearest way (in degrees)
+            
+        Returns:
+            Tuple[Optional[int], Optional[float]]: A tuple containing:
+                - Number of lanes (None if no way found or lanes not specified)
+                - Distance to the way (None if no way found)
+        """
+        result = self.get_nearest_way(lat, lon, max_distance)
+        
+        if result is None:
+            return None, None
+            
+        return result.lanes, result.distance 

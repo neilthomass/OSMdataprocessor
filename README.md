@@ -55,14 +55,10 @@ To find the nearest way to a given coordinate:
 ```python
 from database import DatabaseManager
 
+# Initialize database manager
 db = DatabaseManager()
+
+
 result = db.get_nearest_way(lat=37.3981366, lon=-121.8752114)
+
 ```
-
-## Features
-
-- Efficient spatial queries using PostGIS
-- Handles OSM data updates
-- Batch processing of way IDs
-- Error handling and logging
-- Rate limiting for OSM API requests 
