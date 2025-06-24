@@ -1,3 +1,4 @@
+import os
 import random
 from typing import Dict, List
 
@@ -9,17 +10,36 @@ import requests
 def fetch_pems_speed(station_id: int) -> Dict[int, List[float]]:
     """Fetch current speed data for each lane from PeMS.
 
-    The real PeMS API requires authentication. This function attempts to
-    retrieve data from the public endpoint and falls back to synthetic data
-    if the request fails (e.g., due to lack of network access).
+    This function optionally logs in using ``PEMS_USERNAME`` and ``PEMS_PASSWORD``
+    environment variables. If fetching the live data fails, it falls back to
+    synthetic speeds so the API continues to work.
     """
-    url = f"https://pems.dot.ca.gov/?station_id={station_id}&d=1"
+    session = requests.Session()
+    username = os.getenv("PEMS_USERNAME")
+    password = os.getenv("PEMS_PASSWORD")
+
+    if username and password:
+        try:
+            session.post(
+                "https://pems.dot.ca.gov/",
+                data={"username": username, "password": password, "login": "Login"},
+                timeout=10,
+            )
+        except Exception:
+            pass
+
+    url = (
+        "https://pems.dot.ca.gov/"
+        f"?dnode=station_speed&content=speed&station_id={station_id}&format=json"
+    )
     try:
-        resp = requests.get(url, timeout=5)
+        resp = session.get(url, timeout=10)
         resp.raise_for_status()
         data = resp.json()
-        # Expect data format: {'lanes': {'1': speed1, '2': speed2, ...}}
-        lanes = {int(k): [float(v)] for k, v in data.get('lanes', {}).items()}
+        lanes = {
+            int(item.get("lane", idx + 1)): [float(item.get("speed", 0))]
+            for idx, item in enumerate(data.get("speeds", []))
+        }
         if lanes:
             return lanes
     except Exception:
