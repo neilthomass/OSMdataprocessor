@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Big
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from geoalchemy2 import Geometry
+from datetime import datetime
 
 Base = declarative_base()
 
@@ -20,9 +21,11 @@ class Node(Base):
 
 class Way(Base):
     __tablename__ = 'ways'
-    
+
     way_id = Column(BigInteger, primary_key=True)
     lanes = Column(Integer)
+    lanes_forward = Column(Integer)
+    lanes_backward = Column(Integer)
     highway_type = Column(String(50))
     name = Column(String(255))
     maxspeed = Column(String(20))
@@ -45,4 +48,24 @@ class WayNode(Base):
     node = relationship("Node")
     
     def __repr__(self):
-        return f"<WayNode(way_id={self.way_id}, node_id={self.node_id}, sequence={self.sequence})>" 
+        return f"<WayNode(way_id={self.way_id}, node_id={self.node_id}, sequence={self.sequence})>"
+
+
+class UserData(Base):
+    __tablename__ = 'user_data'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    lat = Column(Float)
+    lon = Column(Float)
+    timestamp = Column(DateTime)
+    speed = Column(Float)
+    lane_index = Column(Integer)
+    segment_id = Column(String(50))
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return (
+            f"<UserData(id={self.id}, lat={self.lat}, lon={self.lon}, "
+            f"speed={self.speed})>"
+        )
+
