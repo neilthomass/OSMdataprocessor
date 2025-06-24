@@ -28,6 +28,7 @@ def main():
     # Initialize database
     db_manager = DatabaseManager()
     db_manager.init_db()
+    """
     
     # Read and parse the relation XML file
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -43,6 +44,7 @@ def main():
     
     # Process all way IDs
     process_way_ids(way_ids, db_manager)
+            """
     
     # Example query
     lat, lon = 37.3981366, -121.8752114  # Example coordinates

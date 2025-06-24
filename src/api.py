@@ -3,6 +3,7 @@ from database import DatabaseManager
 import os
 import random
 from collections import deque
+from sqlalchemy import text
 
 # simple in-memory store for previous coordinates keyed by client address.
 # Each client id maps to a deque holding the last 15 coordinates.
@@ -83,15 +84,6 @@ def get_lanes():
             'message': str(e)
         }), 500
 
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """Simple health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'message': 'OSM Lanes API is running'
-    })
-
-
 @app.route('/api/suggested_speed', methods=['GET'])
 def suggested_speed():
     """Return a random suggested speed for now."""
@@ -104,6 +96,76 @@ def suggested_speed():
 
     speed = random.randint(0, 60)
     return jsonify({'suggested_speed': speed})
+
+@app.route('/speed', methods=['POST'])
+def post_speed():
+    data = request.get_json()
+    lat = data.get('lat')
+    lon = data.get('lon')
+    timestamp = data.get('timestamp')
+    speed = data.get('speed')
+    lane_index = data.get('lane_index')
+
+    # Validate input
+    if None in (lat, lon, timestamp, speed, lane_index):
+        return jsonify({'error': 'Missing required fields'}), 400
+
+    # Find nearest segment (way)
+    way = db_manager.get_nearest_way(lat, lon)
+    if not way:
+        return jsonify({'error': 'No segment found'}), 404
+
+    # For demo, create a fake segment id and confidence
+    matched_segment_id = f"680N-{way.way_id}"
+    suggested_speed = 77  # Placeholder logic
+    confidence = 0.94     # Placeholder logic
+
+    return jsonify({
+        'suggested_speed': suggested_speed,
+        'matched_segment_id': matched_segment_id,
+        'confidence': confidence
+    })
+
+@app.route('/segments', methods=['GET'])
+def get_segments():
+    session = db_manager.Session()
+    segments = []
+    try:
+        # Only select Sinclair Freeway segments
+        ways = session.execute(
+            text("""SELECT way_id, name FROM ways WHERE name ILIKE '%Sinclair%'""")
+        ).fetchall()
+        if not ways:
+            return jsonify([])  # Return empty list if no segments found
+        for way in ways:
+            nodes = session.execute(
+                text("""SELECT n.lat, n.lon FROM nodes n
+                          JOIN way_nodes wn ON n.node_id = wn.node_id
+                          WHERE wn.way_id = :way_id
+                          ORDER BY wn.sequence"""),
+                {'way_id': way.way_id}
+            ).fetchall()
+            polyline = [[n.lat, n.lon] for n in nodes]
+            segments.append({
+                'id': f"Sinclair-{way.way_id}",
+                'lane_index': 2,
+                'polyline': polyline,
+                'mile_range': [12.3, 12.8]
+            })
+        return jsonify(segments)
+    except Exception as e:
+        print(f"Error in /segments: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Simple health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'message': 'OSM Lanes API is running'
+    })
 
 if __name__ == '__main__':
     # Get port from environment or use 5000 as default
