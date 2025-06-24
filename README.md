@@ -62,3 +62,41 @@ db = DatabaseManager()
 result = db.get_nearest_way(lat=37.3981366, lon=-121.8752114)
 
 ```
+
+## Fetching Freeway Data
+
+To load all major California freeways into the database, run:
+
+```bash
+python src/fetch_freeways.py
+```
+
+This script uses the Overpass API to download motorway and trunk roads within
+California and stores them in the database.
+
+## Storing User Speed Data
+
+The `/speed` endpoint now stores submitted speed records in a `user_data` table.
+
+## Speed Recommendations
+
+Use the `/api/recommended_speed` endpoint to obtain predicted speeds for each
+lane for the next 30 seconds. Pass a PeMS `station_id` as a query parameter.
+
+Example:
+
+```bash
+curl 'http://localhost:5000/api/recommended_speed?station_id=1234'
+```
+
+The response contains a list of speeds for each lane:
+
+```json
+{
+  "station_id": 1234,
+  "recommendations": {
+    "1": [60.1, 59.8, ...],
+    "2": [58.2, 58.0, ...]
+  }
+}
+```
