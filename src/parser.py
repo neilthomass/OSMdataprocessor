@@ -44,11 +44,13 @@ def parse_osm_xml(xml_data: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, A
             way_data = {
                 'way_id': way_id,
                 'lanes': None,
+                'lanes_forward': None,
+                'lanes_backward': None,
                 'highway_type': None,
                 'name': None,
                 'maxspeed': None,
                 'version': int(elem.get('version')),
-                'timestamp': parse_timestamp(elem.get('timestamp'))
+                'timestamp': parse_timestamp(elem.get('timestamp')),
             }
             
             # Get way attributes
@@ -56,7 +58,20 @@ def parse_osm_xml(xml_data: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, A
                 key = tag.get('k')
                 value = tag.get('v')
                 if key == 'lanes':
-                    way_data['lanes'] = int(value)
+                    try:
+                        way_data['lanes'] = int(value)
+                    except ValueError:
+                        pass
+                elif key == 'lanes:forward':
+                    try:
+                        way_data['lanes_forward'] = int(value)
+                    except ValueError:
+                        pass
+                elif key == 'lanes:backward':
+                    try:
+                        way_data['lanes_backward'] = int(value)
+                    except ValueError:
+                        pass
                 elif key == 'highway':
                     way_data['highway_type'] = value
                 elif key == 'name':

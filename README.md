@@ -20,6 +20,9 @@ CREATE EXTENSION postgis;
 2. Create a `.env` file in the project root:
 ```
 DATABASE_URL=postgresql://username:password@localhost:5432/osm_data
+# Optional: provide PeMS credentials for live speed data
+PEMS_USERNAME=your_username
+PEMS_PASSWORD=your_password
 ```
 
 3. Install dependencies:
@@ -61,4 +64,46 @@ db = DatabaseManager()
 
 result = db.get_nearest_way(lat=37.3981366, lon=-121.8752114)
 
+```
+
+## Fetching Highway Data
+
+To load all highways in California into the database, run:
+
+```bash
+python src/fetch_highways.py
+```
+
+This script queries the Overpass API for every way with a `highway` tag within
+California and stores the results in the database. Use
+`src/fetch_freeways.py` if you only need major freeways.
+
+## Storing User Speed Data
+
+The `/speed` endpoint now stores submitted speed records in a `user_data` table.
+
+## Speed Recommendations
+
+Use the `/api/recommended_speed` endpoint to obtain predicted speeds for each
+lane for the next 30 seconds. Pass a PeMS `station_id` as a query parameter.
+If `PEMS_USERNAME` and `PEMS_PASSWORD` are set in your `.env` file, the
+application retrieves live data from PeMS; otherwise it falls back to
+synthetic speeds.
+
+Example:
+
+```bash
+curl 'http://localhost:5000/api/recommended_speed?station_id=1234'
+```
+
+The response contains a list of speeds for each lane:
+
+```json
+{
+  "station_id": 1234,
+  "recommendations": {
+    "1": [60.1, 59.8, ...],
+    "2": [58.2, 58.0, ...]
+  }
+}
 ```

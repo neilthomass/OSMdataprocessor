@@ -3,7 +3,9 @@ from database import DatabaseManager
 import os
 import random
 from collections import deque
+from datetime import datetime
 from sqlalchemy import text
+from speed_prediction import fetch_pems_speed, predict_next_speeds
 
 # simple in-memory store for previous coordinates keyed by client address.
 # Each client id maps to a deque holding the last 15 coordinates.
@@ -44,7 +46,9 @@ def get_lanes():
             }), 400
             
         # Get lanes information
-        lanes, distance = db_manager.get_lanes_at_coordinate(lat, lon, max_distance)
+        lanes, lanes_forward, lanes_backward, distance = db_manager.get_lanes_at_coordinate(
+            lat, lon, max_distance
+        )
         
         if lanes is None:
             return jsonify({
@@ -69,6 +73,8 @@ def get_lanes():
         return jsonify({
             'found': True,
             'lanes': lanes,
+            'lanes_forward': lanes_forward,
+            'lanes_backward': lanes_backward,
             'distance': distance,
             'distance_km': distance * 111.0,  # Approximate conversion to kilometers
             'way_id': way_info.way_id,
@@ -97,6 +103,22 @@ def suggested_speed():
     speed = random.randint(0, 60)
     return jsonify({'suggested_speed': speed})
 
+
+@app.route('/api/recommended_speed', methods=['GET'])
+def recommended_speed():
+    """Return predicted speeds for each lane for the next 30 seconds."""
+    station_id = request.args.get('station_id', type=int)
+    if station_id is None:
+        return jsonify({'error': 'Missing station_id'}), 400
+
+    try:
+        current_speeds = fetch_pems_speed(station_id)
+        predictions = predict_next_speeds(current_speeds, horizon=30)
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
+
+    return jsonify({'station_id': station_id, 'recommendations': predictions})
+
 @app.route('/speed', methods=['POST'])
 def post_speed():
     data = request.get_json()
@@ -119,6 +141,19 @@ def post_speed():
     matched_segment_id = f"680N-{way.way_id}"
     suggested_speed = 77  # Placeholder logic
     confidence = 0.94     # Placeholder logic
+
+    # Store user data
+    try:
+        db_manager.store_user_data({
+            'lat': lat,
+            'lon': lon,
+            'timestamp': datetime.fromisoformat(timestamp),
+            'speed': speed,
+            'lane_index': lane_index,
+            'segment_id': matched_segment_id,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
     return jsonify({
         'suggested_speed': suggested_speed,

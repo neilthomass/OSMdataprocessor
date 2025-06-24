@@ -4,7 +4,7 @@ from sqlalchemy.dialects.postgresql import insert
 from typing import List, Dict, Any, Optional, Tuple
 import os
 from dotenv import load_dotenv
-from models import Base, Node, Way, WayNode
+from models import Base, Node, Way, WayNode, UserData
 
 load_dotenv()
 
@@ -56,7 +56,8 @@ class DatabaseManager:
         session = self.Session()
         try:
             query = text("""
-            SELECT w.way_id, w.lanes, w.highway_type, w.name, w.maxspeed,
+            SELECT w.way_id, w.lanes, w.lanes_forward, w.lanes_backward,
+                   w.highway_type, w.name, w.maxspeed,
                    ST_Distance(n.geom, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)) as distance
             FROM ways w
             JOIN way_nodes wn ON w.way_id = wn.way_id
@@ -80,7 +81,9 @@ class DatabaseManager:
         finally:
             session.close()
 
-    def get_lanes_at_coordinate(self, lat: float, lon: float, max_distance: float = 0.001) -> Tuple[Optional[int], Optional[float]]:
+    def get_lanes_at_coordinate(
+        self, lat: float, lon: float, max_distance: float = 0.001
+    ) -> Tuple[Optional[int], Optional[int], Optional[int], Optional[float]]:
         """
         Get the number of lanes at a given coordinate.
         
@@ -90,13 +93,35 @@ class DatabaseManager:
             max_distance (float): Maximum distance to search for nearest way (in degrees)
             
         Returns:
-            Tuple[Optional[int], Optional[float]]: A tuple containing:
-                - Number of lanes (None if no way found or lanes not specified)
+            Tuple[Optional[int], Optional[int], Optional[int], Optional[float]]:
+            A tuple containing:
+                - Total lanes (None if not specified)
+                - Lanes forward
+                - Lanes backward
                 - Distance to the way (None if no way found)
         """
         result = self.get_nearest_way(lat, lon, max_distance)
-        
+
         if result is None:
-            return None, None
-            
-        return result.lanes, result.distance 
+            return None, None, None, None
+
+        return (
+            result.lanes,
+            result.lanes_forward,
+            result.lanes_backward,
+            result.distance,
+        )
+
+    def store_user_data(self, data: Dict[str, Any]) -> None:
+        """Store user-submitted speed data."""
+        session = self.Session()
+        try:
+            stmt = insert(UserData).values(**data)
+            session.execute(stmt)
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
