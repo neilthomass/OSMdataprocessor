@@ -24,6 +24,8 @@ DATABASE_URL=postgresql://username:password@localhost:5432/osm_data
 # be set directly in your environment.
 PEMS_USERNAME=your_username
 PEMS_PASSWORD=your_password
+# Optional: district number for PeMS clearinghouse requests
+PEMS_DISTRICT=7
 ```
 
 3. Install dependencies:
@@ -89,7 +91,8 @@ Use the `/api/recommended_speed` endpoint to obtain predicted speeds for each
 lane for the next 30 seconds. Pass a PeMS `station_id` as a query parameter.
 If `PEMS_USERNAME` and `PEMS_PASSWORD` are set (either as environment
 variables or in your `.env` file), the application retrieves live data from
-PeMS; otherwise it falls back to synthetic speeds.
+PeMS. Optionally set `PEMS_DISTRICT` to specify the district of the station.
+If credentials are missing, the API falls back to synthetic speeds.
 
 Example:
 

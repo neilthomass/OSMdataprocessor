@@ -1,49 +1,48 @@
 import os
 import random
+from datetime import date, timedelta
 from typing import Dict, List
 
 import numpy as np
 from sklearn.linear_model import LinearRegression
 import requests
+from pems import PeMSConnection, OneStation5MinDataHandler
 
 
 def fetch_pems_speed(station_id: int) -> Dict[int, List[float]]:
-    """Fetch current speed data for each lane from PeMS.
+    """Fetch the latest 5‑minute speeds for a station from PeMS.
 
-    This function optionally logs in using ``PEMS_USERNAME`` and ``PEMS_PASSWORD``
-    environment variables. If fetching the live data fails, it falls back to
-    synthetic speeds so the API continues to work.
+    Credentials can be supplied via the ``PEMS_USERNAME`` and ``PEMS_PASSWORD``
+    environment variables. If fetching fails, random speeds are returned so the
+    API remains functional.
     """
-    session = requests.Session()
+
     username = os.getenv("PEMS_USERNAME")
     password = os.getenv("PEMS_PASSWORD")
+    district = os.getenv("PEMS_DISTRICT")
 
-    if username and password:
+    if username and password and not PeMSConnection().initialized:
         try:
-            session.post(
-                "https://pems.dot.ca.gov/",
-                data={"username": username, "password": password, "login": "Login"},
-                timeout=10,
-            )
+            PeMSConnection.initialize(username, password)
         except Exception:
             pass
 
-    url = (
-        "https://pems.dot.ca.gov/"
-        f"?dnode=station_speed&content=speed&station_id={station_id}&format=json"
-    )
-    try:
-        resp = session.get(url, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
-        lanes = {
-            int(item.get("lane", idx + 1)): [float(item.get("speed", 0))]
-            for idx, item in enumerate(data.get("speeds", []))
-        }
-        if lanes:
-            return lanes
-    except Exception:
-        pass
+    if PeMSConnection().initialized:
+        handler = OneStation5MinDataHandler(station_id=station_id, use_cache=False)
+        today = date.today()
+        try:
+            chunks = list(handler.load_between(today - timedelta(days=1), today, district=district))
+            chunks = [c for c in chunks if c is not None and not c.empty]
+            if chunks:
+                df = chunks[-1].sort_values("timestamp")
+                latest = df.iloc[-1]
+                speeds = {}
+                for idx, col in enumerate([c for c in df.columns if c.endswith("_avg_speed")]):
+                    speeds[idx + 1] = [float(latest[col])]
+                if speeds:
+                    return speeds
+        except Exception:
+            pass
 
     # Fallback: generate random speeds for three lanes
     return {i: [float(random.randint(40, 65))] for i in range(1, 4)}
