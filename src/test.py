@@ -1,3 +1,4 @@
+import os
 import requests
 import json
 
@@ -42,12 +43,22 @@ def test_segments():
     except Exception as e:
         print('  Error parsing segments response:', e)
 
+def test_recommended_speed():
+    station_id = os.getenv('PEMS_STATION_ID', '1234')
+    r = requests.get(f'{BASE_URL}/api/recommended_speed', params={'station_id': station_id})
+    print('GET /api/recommended_speed:', r.status_code)
+    try:
+        print('  Response:', json.dumps(r.json(), indent=2))
+    except Exception as e:
+        print('  Error parsing response:', e)
+
 def main():
     print('--- Testing API Endpoints ---')
     test_health()
     test_lanes()
     test_suggested_speed()
     test_post_speed()
+    test_recommended_speed()
     test_segments()
 
 if __name__ == '__main__':
